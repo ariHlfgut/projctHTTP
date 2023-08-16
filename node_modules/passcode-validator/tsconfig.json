@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es6",
+    "sourceMap": true,
+    "outDir": "./build",
+    // Enable some options to subject your code to stricter/safer rules.
+    "strict": true
+  },
+  "include": [
+    "src/index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "test"
+  ]
+}

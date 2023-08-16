@@ -26,12 +26,16 @@ const users = [
   },
 ];
 const express = require("express");
+const bcrypt = require("bcrypt");
+const { v4: uuid } = require("uuid");
+const validator = require("email-validator");
+const passwordValidator = require("password-validator");
+const passwordCorrect = new passwordValidator();
+passwordCorrect.is().max(8).is().min(8).has().uppercase().has().lowercase();
 const app = express();
 const port = 3000;
 
-const { v4: uuid } = require("uuid");
 app.use(express.json());
-const bcrypt = require("bcrypt");
 const saltRounds = 10;
 //---------------------------------//
 
@@ -51,6 +55,18 @@ const saltRounds = 10;
 // });
 
 //---------------------------------//
+const emailCorrectMiddleware = (req, res, next) => {
+  if (!validator.validate(req.body.email)) {
+    return res.status(400).json({ error: "Invalid email" });
+  }
+  next();
+};
+const passwordCorrectMiddleware = (req, res, next) => {
+  if (!passwordCorrect.validate(req.body.password)) {
+    return res.status(400).json({ error: "Invalid password" });
+  }
+  next();
+};
 
 function withoutEncryption(password, hash) {
   const outHash = bcrypt.compareSync(password, hash);
@@ -79,32 +95,39 @@ app.get("/:id", (req, res) => {
   res.send(userSearch);
 });
 
-app.post("/", (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Missing required fields" });
+app.post(
+  "/new",
+  emailCorrectMiddleware,
+  passwordCorrectMiddleware,
+  (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    const newUser = { id: uuid(), email, password: hash(password, saltRounds) };
+    users.push(newUser);
+    res.send(users);
   }
-  const newUser = { id: uuid(), email, password: hash(password, saltRounds) };
-  users.push(newUser);
-  res.send(users);
-  log("The file has been saved!");
-});
+);
 
-app.put("/:id", (req, res) => {
-  const userId = req.params.id;
-  const index = users.findIndex((user) => user.id === userId);
-  const userSearch = users.find((user) => user.id === userId);
-  const { email, password } = req.body;
-  if (!email || !password) {
-    return res.status(400).json({ error: "Missing required fields" });
+app.put(
+  "/:id",
+  emailCorrectMiddleware,
+  passwordCorrectMiddleware,
+  (req, res) => {
+    const userId = req.params.id;
+    const index = users.findIndex((user) => user.id === userId);
+    const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    if (!index) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    users[index] = { id: userId, email, password };
+    res.send(users);
   }
-  if (!userSearch) {
-    return res.status(404).json({ error: "User not found" });
-  }
-  users[index] = { id: userId, email, password };
-  res.send(users);
-  log("The file has been saved!");
-});
+);
 
 app.delete("/:id", (req, res) => {
   const userId = req.params.id;
@@ -115,10 +138,10 @@ app.delete("/:id", (req, res) => {
   }
   users.splice(index, 1);
   res.send(users);
-  return res.status(200).send(`User ${userId} delete`);
+  res.status(200).send(`User ${userId} delete`);
 });
 
-app.post("/Search", (req, res) => {
+app.post("/search", (req, res) => {
   const { email, password } = req.body;
   const index1 = users.findIndex((user) => user.email === email);
   if (!email || !password) {
@@ -137,3 +160,5 @@ app.post("/Search", (req, res) => {
 });
 
 app.listen(port, () => console.log(`Server started on port ${port}`));
+
+//regular = /[A-Za-z0-9]+/;
